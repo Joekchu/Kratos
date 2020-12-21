@@ -181,7 +181,7 @@ class PointOutputProcess(KratosMultiphysics.Process):
             my_rank = comm.Rank()
         writing_rank = comm.MaxAll(my_rank) # The partition with the larger rank writes
 
-        if my_rank == writing_rank:
+        if comm.Rank() == writing_rank:
 
             file_handler_params = KratosMultiphysics.Parameters(self.params["output_file_settings"])
             file_header = GetFileHeader(entity_type, found_id, self.point, self.output_variables[0])
