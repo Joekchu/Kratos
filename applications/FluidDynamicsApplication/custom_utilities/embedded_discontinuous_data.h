@@ -116,10 +116,6 @@ static int Check(
     const Element& rElement,
     const ProcessInfo& rProcessInfo)
 {
-    KRATOS_CHECK_VARIABLE_KEY(SLIP_LENGTH);
-    KRATOS_CHECK_VARIABLE_KEY(PENALTY_COEFFICIENT);
-    KRATOS_CHECK_VARIABLE_KEY(ELEMENTAL_DISTANCES);
-
     int out = TFluidData::Check(rElement,rProcessInfo);
     return out;
 }
