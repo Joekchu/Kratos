@@ -2,11 +2,11 @@
 
 #include "custom_elements/embedded_fluid_element_discontinuous_edge.h"
 #include "custom_elements/qs_vms.h"
-#include "custom_elements/symbolic_navier_stokes.h"
+#include "custom_elements/weakly_compressible_navier_stokes.h"
 
 #include "utilities/element_size_calculator.h"
 #include "custom_utilities/embedded_discontinuous_edge_data.h"
-#include "custom_utilities/symbolic_navier_stokes_data.h"
+#include "custom_utilities/weakly_compressible_navier_stokes_data.h"
 #include "custom_utilities/time_integrated_qsvms_data.h"
 
 #include "modified_shape_functions/triangle_2d_3_modified_shape_functions.h"
@@ -287,10 +287,6 @@ void EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::AddPressureGradientPen
     VectorType& rRHS,
     const EmbeddedDiscontinuousEdgeElementData& rData) const
 {
-    // Compute penalty coefficient for pressure gradient penalization
-    const double pen_coef = this->ComputePressureGradPenaltyCoefficient(rData);
-    KRATOS_INFO("[INCISED] PressureGradientPenalty") << "pen_coef = " << pen_coef << std::endl;
-
     // Obtain the previous iteration velocity solution
     array_1d<double,LocalSize> values;
     this->GetCurrentValuesVector(rData, values);
@@ -314,6 +310,10 @@ void EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::AddPressureGradientPen
         const double weight = rData.PositiveSideWeights[g];
         const auto aux_N = row(rData.PositiveSideN, g);
         const BoundedMatrix<double, NumNodes, Dim> aux_DNDX = rData.PositiveSideDNDX[g];
+
+        // Compute penalty coefficient for pressure gradient penalization
+        const double pen_coef = this->ComputePressureGradPenaltyCoefficient(rData, aux_N);
+        //KRATOS_INFO("[INCISED] PressureGradientPenalty") << "pen_coef = " << pen_coef << std::endl;
 
         // Set the shape functions auxiliar matrix
         BoundedMatrix<double, LocalSize, Dim> N_mat_trans = ZeroMatrix(LocalSize, Dim);
@@ -346,10 +346,6 @@ void EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::AddVelocityGradientPen
     VectorType& rRHS,
     const EmbeddedDiscontinuousEdgeElementData& rData) const
 {
-    // Compute penalty coefficient for velocity gradient penalization
-    const double pen_coef = this->ComputeVelocityGradPenaltyCoefficient(rData);
-    KRATOS_INFO("[INCISED] VelocityGradientPenalty") << "pen_coef = " << pen_coef << std::endl;
-
     // Obtain the previous iteration velocity solution
     array_1d<double,LocalSize> values;
     this->GetCurrentValuesVector(rData, values);
@@ -371,8 +367,12 @@ void EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::AddVelocityGradientPen
     for (uint8_t g = 0; g < number_of_positive_gauss_points; ++g){
         // Get Gauss point data
         const double weight = rData.PositiveSideWeights[g];
-        //const auto aux_N = row(rData.PositiveSideN, g);
+        const auto aux_N = row(rData.PositiveSideN, g);
         const BoundedMatrix<double, NumNodes, Dim> aux_DNDX = rData.PositiveSideDNDX[g];
+
+        // Compute penalty coefficient for velocity gradient penalization
+        const double pen_coef = this->ComputeVelocityGradPenaltyCoefficient(rData, aux_N);
+        //KRATOS_INFO("[INCISED] VelocityGradientPenalty") << "pen_coef = " << pen_coef << std::endl;
 
         // Set the velocity gradient auxiliar matrix
         BoundedMatrix<double, Dim, LocalSize> v_DNDX = ZeroMatrix(Dim, LocalSize);
@@ -395,53 +395,47 @@ void EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::AddVelocityGradientPen
 }
 
 template <class TBaseElement>
-double EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::ComputePressureGradPenaltyCoefficient(const EmbeddedDiscontinuousEdgeElementData& rData) const
+double EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::ComputePressureGradPenaltyCoefficient(const EmbeddedDiscontinuousEdgeElementData& rData,
+    const Vector& rN) const
 {
     // Get user-defined penalization constant
     const double c_p = rData.PressureGradPenaltyConstant;
 
-    // Compute the element average velocity norm
-    double v_norm = 0.0;
-    for (uint8_t d = 0; d < Dim; ++d){
-        double aux_vel = 0.0;
-        for (uint8_t i_node = 0; i_node < NumNodes; ++i_node){
-            aux_vel += rData.Velocity(i_node,d) - rData.MeshVelocity(i_node,d);
-        }
-        aux_vel /= NumNodes;
-        v_norm += aux_vel*aux_vel;
+    // Get the nodal magnitudes at the current Gauss point
+    double gp_rho = 0.0;
+    array_1d<double,Dim> gp_v = ZeroVector(Dim);
+    for (unsigned int i_node = 1;  i_node < NumNodes; ++i_node) {
+        gp_rho += rN(i_node) * this->AuxiliaryDensityGetter(rData, i_node);
+        noalias(gp_v) += rN(i_node) * (row(rData.Velocity, i_node) - row(rData.MeshVelocity, i_node,d));
     }
-    v_norm = std::sqrt(v_norm);
+    const double gp_v_norm = norm_2(gauss_pt_v);
 
     // Calculate penality coefficient
     const double h = rData.ElementSize;
-    const double rho = rData.Density;
     const double mu = rData.EffectiveViscosity;
-    const double penalty_coef = c_p * v_norm * h * rho / mu /1e5;
+    const double penalty_coef = c_p * gp_v_norm * h * gp_rho / mu /1e5;
 
     return penalty_coef;
 }
 
 template <class TBaseElement>
-double EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::ComputeVelocityGradPenaltyCoefficient(const EmbeddedDiscontinuousEdgeElementData& rData) const
+double EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::ComputeVelocityGradPenaltyCoefficient(const EmbeddedDiscontinuousEdgeElementData& rData,
+    const Vector& rN) const
 {
     // Get user-defined penalization constant
     const double c_v = rData.VelocityGradPenaltyConstant;
 
-    // Compute the element average velocity norm
-    double v_norm = 0.0;
-    for (uint8_t d = 0; d < Dim; ++d){
-        double aux_vel = 0.0;
-        for (uint8_t i_node = 0; i_node < NumNodes; ++i_node){
-            aux_vel += rData.Velocity(i_node,d) - rData.MeshVelocity(i_node,d);
-        }
-        aux_vel /= NumNodes;
-        v_norm += aux_vel*aux_vel;
+    // Get the nodal magnitudes at the current Gauss point
+    double gp_rho = 0.0;
+    array_1d<double,Dim> gp_v = ZeroVector(Dim);
+    for (unsigned int i_node = 1;  i_node < NumNodes; ++i_node) {
+        gp_rho += rN(i_node) * this->AuxiliaryDensityGetter(rData, i_node);
+        noalias(gp_v) += rN(i_node) * (row(rData.Velocity, i_node) - row(rData.MeshVelocity, i_node,d));
     }
-    v_norm = std::sqrt(v_norm);
+    const double gp_v_norm = norm_2(gauss_pt_v);
 
     // Calculate penality coefficient
     const double h = rData.ElementSize;
-    const double rho = rData.Density;
     const double mu = rData.EffectiveViscosity;
     /*double vol = 0.0;
     const double d = rData.Dim;
@@ -450,7 +444,7 @@ double EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::ComputeVelocityGradP
     } else {
         vol = rData.CalculateTetrahedronVolume(this->GetGeometry());
     }*/
-    const double penalty_coef = c_v * (mu + rho * v_norm * h);  //* ( mu * std::pow(h, d-1.0) + rho * v_norm * std::pow(h, d) ) / vol;
+    const double penalty_coef = c_v * (mu + gp_rho * gp_v_norm * h);  //* ( mu * std::pow(h, d-1.0) + rho * v_norm * std::pow(h, d) ) / vol;
 
     return penalty_coef;
 }
@@ -705,8 +699,8 @@ ModifiedShapeFunctions::Pointer GetContinuousShapeFunctionCalculator<3, 4>(
 template class EmbeddedFluidElementDiscontinuousEdge< QSVMS< TimeIntegratedQSVMSData<2,3> > >;
 template class EmbeddedFluidElementDiscontinuousEdge< QSVMS< TimeIntegratedQSVMSData<3,4> > >;
 
-template class EmbeddedFluidElementDiscontinuousEdge< SymbolicNavierStokes< SymbolicNavierStokesData<2,3> > >;
-template class EmbeddedFluidElementDiscontinuousEdge< SymbolicNavierStokes< SymbolicNavierStokesData<3,4> > >;
+template class EmbeddedFluidElementDiscontinuousEdge< WeaklyCompressibleNavierStokes< WeaklyCompressibleNavierStokesData<2,3> > >;
+template class EmbeddedFluidElementDiscontinuousEdge< WeaklyCompressibleNavierStokes< WeaklyCompressibleNavierStokesData<3,4> > >;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
