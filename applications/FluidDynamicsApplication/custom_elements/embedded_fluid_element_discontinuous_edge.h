@@ -381,6 +381,19 @@ private:
         EmbeddedDiscontinuousEdgeElementData& rData,
         array_1d<double,3>& rDragForceLocation) const;
 
+    /**
+     * @brief Auxiliary method to get the density value
+     * This auxiliary method interfaces the density get in order to make possible the
+     * use of the embedded element with both property-based and nodal-based density formulations.
+     * For the standard case (property-based formulations) the method is not specialized.
+     * In case a nodal density base formulation is used, it needs to be specialized.
+     * @param rData Embedded element data container
+     * @param NodeIndex The local index node for which the density is retrieved (only used in nodal density formulations)
+     * @return double The density value
+     */
+    inline double AuxiliaryDensityGetter(
+        const EmbeddedDiscontinuousEdgeElementData& rData,
+        const unsigned int NodeIndex) const;
 
     ///@}
     ///@name Private  Access

@@ -406,9 +406,9 @@ double EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::ComputePressureGradP
     array_1d<double,Dim> gp_v = ZeroVector(Dim);
     for (unsigned int i_node = 1;  i_node < NumNodes; ++i_node) {
         gp_rho += rN(i_node) * this->AuxiliaryDensityGetter(rData, i_node);
-        noalias(gp_v) += rN(i_node) * (row(rData.Velocity, i_node) - row(rData.MeshVelocity, i_node,d));
+        noalias(gp_v) += rN(i_node) * (row(rData.Velocity, i_node) - row(rData.MeshVelocity, i_node));
     }
-    const double gp_v_norm = norm_2(gauss_pt_v);
+    const double gp_v_norm = norm_2(gp_v);
 
     // Calculate penality coefficient
     const double h = rData.ElementSize;
@@ -430,9 +430,9 @@ double EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::ComputeVelocityGradP
     array_1d<double,Dim> gp_v = ZeroVector(Dim);
     for (unsigned int i_node = 1;  i_node < NumNodes; ++i_node) {
         gp_rho += rN(i_node) * this->AuxiliaryDensityGetter(rData, i_node);
-        noalias(gp_v) += rN(i_node) * (row(rData.Velocity, i_node) - row(rData.MeshVelocity, i_node,d));
+        noalias(gp_v) += rN(i_node) * (row(rData.Velocity, i_node) - row(rData.MeshVelocity, i_node));
     }
-    const double gp_v_norm = norm_2(gauss_pt_v);
+    const double gp_v_norm = norm_2(gp_v);
 
     // Calculate penality coefficient
     const double h = rData.ElementSize;
@@ -639,6 +639,30 @@ void EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::CalculateDragForceCent
     } else if (rData.IsIncised()) {
         // TODO: do stuff
     }
+}
+
+template <class TBaseElement>
+double EmbeddedFluidElementDiscontinuousEdge<TBaseElement>::AuxiliaryDensityGetter(
+    const EmbeddedDiscontinuousEdgeElementData& rData,
+    const unsigned int NodeIndex) const
+{
+    return rData.Density;
+}
+
+template <>
+double EmbeddedFluidElementDiscontinuousEdge<WeaklyCompressibleNavierStokes< WeaklyCompressibleNavierStokesData<2,3> >>::AuxiliaryDensityGetter(
+    const EmbeddedDiscontinuousEdgeElementData& rData,
+    const unsigned int NodeIndex) const
+{
+    return rData.Density(NodeIndex);
+}
+
+template <>
+double EmbeddedFluidElementDiscontinuousEdge<WeaklyCompressibleNavierStokes< WeaklyCompressibleNavierStokesData<3,4> >>::AuxiliaryDensityGetter(
+    const EmbeddedDiscontinuousEdgeElementData& rData,
+    const unsigned int NodeIndex) const
+{
+    return rData.Density(NodeIndex);
 }
 
 // serializer

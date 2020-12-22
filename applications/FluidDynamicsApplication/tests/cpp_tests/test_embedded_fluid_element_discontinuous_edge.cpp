@@ -32,10 +32,9 @@ KRATOS_TEST_CASE_IN_SUITE(EmbeddedElementDiscontinuousEdge2D3N, FluidDynamicsApp
     ModelPart& model_part = model.CreateModelPart("Main",3);
 
     // Variables addition
+    model_part.AddNodalSolutionStepVariable(DENSITY);
     model_part.AddNodalSolutionStepVariable(REACTION);
     model_part.AddNodalSolutionStepVariable(BODY_FORCE);
-    model_part.AddNodalSolutionStepVariable(DYNAMIC_TAU);
-    model_part.AddNodalSolutionStepVariable(SOUND_VELOCITY);
     model_part.AddNodalSolutionStepVariable(PRESSURE);
     model_part.AddNodalSolutionStepVariable(VELOCITY);
     model_part.AddNodalSolutionStepVariable(MESH_VELOCITY);
@@ -51,8 +50,9 @@ KRATOS_TEST_CASE_IN_SUITE(EmbeddedElementDiscontinuousEdge2D3N, FluidDynamicsApp
 
     // Process info creation
     double delta_time = 0.1;
+    const double sound_velocity = 1.0e+3;
     model_part.GetProcessInfo().SetValue(DYNAMIC_TAU, 0.001);
-    model_part.GetProcessInfo().SetValue(SOUND_VELOCITY, 1.0e+3);
+    model_part.GetProcessInfo().SetValue(SOUND_VELOCITY, sound_velocity);
     model_part.GetProcessInfo().SetValue(DELTA_TIME, delta_time);
     Vector bdf_coefs(3);
     bdf_coefs[0] = 3.0/(2.0*delta_time);
@@ -61,8 +61,9 @@ KRATOS_TEST_CASE_IN_SUITE(EmbeddedElementDiscontinuousEdge2D3N, FluidDynamicsApp
     model_part.GetProcessInfo().SetValue(BDF_COEFFICIENTS, bdf_coefs);
 
     // Set the element properties
+    const double rho = 1000.0;
     Properties::Pointer p_properties = model_part.CreateNewProperties(0);
-    p_properties->SetValue(DENSITY, 1000.0);
+    p_properties->SetValue(DENSITY, rho);
     p_properties->SetValue(DYNAMIC_VISCOSITY, 1.0e-05);
     ConstitutiveLaw::Pointer pConsLaw(new Newtonian2DLaw());
     p_properties->SetValue(CONSTITUTIVE_LAW, pConsLaw);
@@ -80,7 +81,7 @@ KRATOS_TEST_CASE_IN_SUITE(EmbeddedElementDiscontinuousEdge2D3N, FluidDynamicsApp
     }
 
     std::vector<ModelPart::IndexType> element_nodes {1, 2, 3};
-    model_part.CreateNewElement("EmbeddedSymbolicNavierStokesDiscontinuousEdge2D3N", 1, element_nodes, p_properties);
+    model_part.CreateNewElement("EmbeddedWeaklyCompressibleNavierStokesDiscontinuousEdge2D3N", 1, element_nodes, p_properties);
     model_part.CreateNewElement("EmbeddedQSVMSDiscontinuousEdge2D3N", 2, element_nodes, p_properties);
 
     const auto& r_process_info = model_part.GetProcessInfo();
@@ -99,6 +100,8 @@ KRATOS_TEST_CASE_IN_SUITE(EmbeddedElementDiscontinuousEdge2D3N, FluidDynamicsApp
     Element::Pointer p_element = model_part.pGetElement(1);
 
     for(unsigned int i=0; i<3; i++){
+        p_element->GetGeometry()[i].SetValue(SOUND_VELOCITY, sound_velocity); // Required for the weakly compressible instance
+        p_element->GetGeometry()[i].FastGetSolutionStepValue(DENSITY) = rho; // Required for the nodal-based density instances
         p_element->GetGeometry()[i].FastGetSolutionStepValue(PRESSURE)    = 0.0;
         p_element->GetGeometry()[i].FastGetSolutionStepValue(PRESSURE, 1) = 0.0;
         p_element->GetGeometry()[i].FastGetSolutionStepValue(PRESSURE, 2) = 0.0;
@@ -149,8 +152,8 @@ KRATOS_TEST_CASE_IN_SUITE(EmbeddedElementDiscontinuousEdge2D3N, FluidDynamicsApp
     }
 
     std::vector< std::vector<double> > output_cut(6);
-    output_cut[0] = {18.84223125,59.21540862,-0.4453265312,49.82664899,169.407093,0.3953265312,32.91666657,-23.57174638,-0.1}; // EmbeddedSymbolicNavierStokesDiscontinuous
-    output_cut[1] = {3.777844188, 12.07497388, -0.4453264623, 42.19438001, 129.0905425, 0.3953264623, 32.91666657, -23.57174638, -0.1}; // EmbeddedQSVMSDiscontinuous
+    output_cut[0] = {18.84223125,59.39337635,-0.4453265312,49.82664899,169.5161544,0.3953265312,32.91666657,-24.94122968,-0.1}; // EmbeddedWeaklyCompressibleNavierStokesDiscontinuous
+    output_cut[1] = {3.777844188,12.25294162,-0.4453264623,42.19438001,129.199604,0.3953264623,32.91666657,-24.94122968,-0.1}; // EmbeddedQSVMSDiscontinuous
     counter = 0;
 
     // Test cut element
@@ -178,8 +181,8 @@ KRATOS_TEST_CASE_IN_SUITE(EmbeddedElementDiscontinuousEdge2D3N, FluidDynamicsApp
     }
 
     std::vector< std::vector<double> > output_slip_cut(6);
-    output_slip_cut[0] = {18.84227218,59.21545054,-0.4453265312,49.82660608,169.407051,0.3953265312,32.91666667,-23.57174638,-0.1}; // EmbeddedSymbolicNavierStokesDiscontinuous
-    output_slip_cut[1] = {3.777885122, 12.07501581, -0.4453264623, 42.1943371, 129.0905006, 0.3953264623, 32.91666667, -23.57174638, -0.1}; // EmbeddedQSVMSDiscontinuous
+    output_slip_cut[0] = {18.84227218,59.39341828,-0.4453265312,49.82660608,169.5161125,0.3953265312,32.91666667,-24.94122968,-0.1}; // EmbeddedWeaklyCompressibleNavierStokesDiscontinuous
+    output_slip_cut[1] = {3.777885122,12.25298355,-0.4453264623,42.1943371,129.199562,0.3953264623,32.91666667,-24.94122968,-0.1}; // EmbeddedQSVMSDiscontinuous
     counter = 0;
 
     // Test slip cut element
@@ -201,20 +204,19 @@ KRATOS_TEST_CASE_IN_SUITE(EmbeddedElementDiscontinuousEdge2D3N, FluidDynamicsApp
 
     std::vector< std::vector<double> > output_incised(6);
     // only pressure gradient penalty: should print and get same values as uncut element, because pressure values of previous solution step are zero
-    //output_incised[0] = output_uncut[0]; // EmbeddedSymbolicNavierStokesDiscontinuous
+    //output_incised[0] = output_uncut[0]; // EmbeddedWeaklyCompressibleNavierStokesDiscontinuous
     //output_incised[1] = output_uncut[1]; // EmbeddedQSVMSDiscontinuous
     // with velocity gradient penalty:
-    output_incised[0] = {-0.936162,8.51995,-0.6557582459,67.57989341,174.5435981,0.1308775154,110.444523,215.3506723,0.3748807306}; // EmbeddedSymbolicNavierStokesDiscontinuous
-    output_incised[1] = {-21.81650306,-40.75920676,-0.6557581669,54.90454836,132.1891487,0.1308774929,90.0369547,179.8200581,0.374880674}; // EmbeddedQSVMSDiscontinuous
-
+    output_incised[0] = {-31.5776,-22.1215,-0.655758,77.8937,184.857,0.130878,131.072,235.978,0.374881}; // EmbeddedWeaklyCompressibleNavierStokesDiscontinuous
+    output_incised[1] = {-52.758,-71.7007,-0.655758,65.2184,142.503,0.130877,110.665,200.448,0.374881}; // EmbeddedQSVMSDiscontinuous
 
     counter = 0;
 
     // Test incised element (one edge is cut)
     model_part.GetProcessInfo().SetValue(P_GRAD_PENALTY_CONSTANT, 1.0);
     model_part.GetProcessInfo().SetValue(V_GRAD_PENALTY_CONSTANT, 1.0);
-    //for penalty constant 1.0: penalty coefficient of pressure gradient should be 1.58114e+07
-    //for penalty constant 1.0: penalty coefficient of velocity gradient should be 158.114
+    //for penalty constant 1.0: penalty coefficient of pressure gradient should be (22.9062, 123.056, 163.453) for respective Gauss point
+    //for penalty constant 1.0: penalty coefficient of velocity gradient should be (22.9062, 123.056, 163.453) for respective Gauss point
 
     elem_dist[0] =  0.2;
     elem_dist[1] =  0.5;
