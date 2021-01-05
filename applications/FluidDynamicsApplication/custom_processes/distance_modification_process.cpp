@@ -94,6 +94,7 @@ void DistanceModificationProcess::CheckDefaultsAndProcessSettings(Parameters &rP
         "avoid_almost_empty_elements"                 : true,
         "deactivate_full_negative_elements"           : true,
         "recover_original_distance_at_each_step"      : false,
+        "consider_edge_based"                         : false,
         "full_negative_elements_fixed_variables_list" : ["PRESSURE","VELOCITY"]
     }  )" );
 
@@ -106,6 +107,7 @@ void DistanceModificationProcess::CheckDefaultsAndProcessSettings(Parameters &rP
     mAvoidAlmostEmptyElements = rParameters["avoid_almost_empty_elements"].GetBool();
     mNegElemDeactivation = rParameters["deactivate_full_negative_elements"].GetBool();
     mRecoverOriginalDistance = rParameters["recover_original_distance_at_each_step"].GetBool();
+    mConsiderEdgeBased = rParameters["consider_edge_based"].GetBool();
     if (mNegElemDeactivation) {
         this->CheckAndStoreVariablesList(rParameters["full_negative_elements_fixed_variables_list"].GetStringArray());
     }
@@ -297,6 +299,23 @@ void DistanceModificationProcess::ModifyDiscontinuousDistance(){
                 }
             }
         }
+
+        // Modify and elemental edge distances
+        if (mConsiderEdgeBased) {
+            #pragma omp parallel for
+            for (int i_elem = 0; i_elem < static_cast<int>(n_elems); ++i_elem){
+                auto it_elem = elems_begin + i_elem;
+
+                // Check if the distance values are close to zero
+                Vector &r_elem_dist = it_elem->GetValue(ELEMENTAL_EDGE_DISTANCES);
+                for (unsigned int i_edge = 0; i_edge < r_elem_dist.size(); ++i_edge){
+                    if (std::abs(r_elem_dist(i_edge)) < mDistanceThreshold){
+                        r_elem_dist(i_edge) = mDistanceThreshold;
+                    }
+                }
+            }
+        }
+
     } else {
         // Case in where the original distance needs to be kept to track the interface (e.g. FSI)
 
@@ -336,6 +355,41 @@ void DistanceModificationProcess::ModifyDiscontinuousDistance(){
             {
                 mModifiedDistancesIDs.insert(mModifiedDistancesIDs.end(),aux_modified_distances_ids.begin(),aux_modified_distances_ids.end());
                 mModifiedElementalDistancesValues.insert(mModifiedElementalDistancesValues.end(),aux_modified_elemental_distances.begin(),aux_modified_elemental_distances.end());
+            }
+        }
+
+        if (mConsiderEdgeBased) {
+            #pragma omp parallel for
+            for (unsigned int i_chunk = 0; i_chunk < num_chunks; ++i_chunk)
+            {
+                auto elems_begin = r_elems.begin() + partition_vec[i_chunk];
+                auto elems_end = r_elems.begin() + partition_vec[i_chunk + 1];
+
+                // Auxiliar chunk arrays
+                std::vector<unsigned int> aux_modified_edge_distances_ids;
+                std::vector<Vector> aux_modified_edge_distances;
+
+                // Modify and save elemental edge distances
+                for (auto it_elem = elems_begin; it_elem < elems_end; ++it_elem){
+                    bool is_saved = false;
+                    Vector &r_edge_dist = it_elem->GetValue(ELEMENTAL_EDGE_DISTANCES);
+                    for (unsigned int i_edge = 0; i_edge < r_edge_dist.size(); ++i_edge){
+                        if (std::abs(r_edge_dist(i_edge)) < mDistanceThreshold){
+                            if (!is_saved){
+                                aux_modified_edge_distances_ids.push_back(it_elem->Id());
+                                aux_modified_edge_distances.push_back(r_edge_dist);
+                            }
+                            r_edge_dist(i_edge) = mDistanceThreshold;
+                        }
+                    }
+                }
+
+                // Save the auxiliar chunk arrays
+                #pragma omp critical
+                {
+                    mModifiedEdgeDistancesIDs.insert(mModifiedEdgeDistancesIDs.end(),aux_modified_edge_distances_ids.begin(),aux_modified_edge_distances_ids.end());
+                    mModifiedEdgeDistancesValues.insert(mModifiedEdgeDistancesValues.end(),aux_modified_edge_distances.begin(),aux_modified_edge_distances.end());
+                }
             }
         }
     }
@@ -399,6 +453,21 @@ void DistanceModificationProcess::RecoverOriginalDiscontinuousDistance() {
         const auto elem_dist = mModifiedElementalDistancesValues[i_elem];
         mrModelPart.GetElement(elem_id).SetValue(ELEMENTAL_DISTANCES,elem_dist);
     }
+
+    if (mConsiderEdgeBased == true) {
+        #pragma omp parallel for
+        for (int i_elem = 0; i_elem < static_cast<int>(mModifiedEdgeDistancesIDs.size()); ++i_elem) {
+            const unsigned int elem_id = mModifiedEdgeDistancesIDs[i_elem];
+            const auto edge_dist = mModifiedEdgeDistancesValues[i_elem];
+            mrModelPart.GetElement(elem_id).SetValue(ELEMENTAL_EDGE_DISTANCES,edge_dist);
+        }
+        // Empty the modified distance vectors
+        mModifiedEdgeDistancesIDs.resize(0);
+        mModifiedEdgeDistancesValues.resize(0);
+        mModifiedEdgeDistancesIDs.shrink_to_fit();
+        mModifiedEdgeDistancesValues.shrink_to_fit();
+    }
+
 
     // Empty the modified distance vectors
     mModifiedDistancesIDs.resize(0);
