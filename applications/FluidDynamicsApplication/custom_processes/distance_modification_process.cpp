@@ -300,7 +300,7 @@ void DistanceModificationProcess::ModifyDiscontinuousDistance(){
             }
         }
 
-        // Modify and elemental edge distances
+        // Modify elemental edge distances
         if (mConsiderEdgeBased) {
             #pragma omp parallel for
             for (int i_elem = 0; i_elem < static_cast<int>(n_elems); ++i_elem){
@@ -360,7 +360,7 @@ void DistanceModificationProcess::ModifyDiscontinuousDistance(){
 
         if (mConsiderEdgeBased) {
             #pragma omp parallel for
-            for (unsigned int i_chunk = 0; i_chunk < num_chunks; ++i_chunk)
+            for (int i_chunk = 0; i_chunk < num_chunks; ++i_chunk)
             {
                 auto elems_begin = r_elems.begin() + partition_vec[i_chunk];
                 auto elems_end = r_elems.begin() + partition_vec[i_chunk + 1];
@@ -454,7 +454,7 @@ void DistanceModificationProcess::RecoverOriginalDiscontinuousDistance() {
         mrModelPart.GetElement(elem_id).SetValue(ELEMENTAL_DISTANCES,elem_dist);
     }
 
-    if (mConsiderEdgeBased == true) {
+    if (mConsiderEdgeBased) {
         #pragma omp parallel for
         for (int i_elem = 0; i_elem < static_cast<int>(mModifiedEdgeDistancesIDs.size()); ++i_elem) {
             const unsigned int elem_id = mModifiedEdgeDistancesIDs[i_elem];

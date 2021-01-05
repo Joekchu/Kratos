@@ -180,7 +180,8 @@ class NavierStokesEmbeddedMonolithicSolver(FluidSolver):
             "continuous_distance": false,
             "check_at_each_time_step": true,
             "avoid_almost_empty_elements": false,
-            "deactivate_full_negative_elements": false
+            "deactivate_full_negative_elements": false,
+            "consider_edge_based": false
         }''')
 
     @classmethod
@@ -314,7 +315,7 @@ class NavierStokesEmbeddedMonolithicSolver(FluidSolver):
         self.level_set_type = self.embedded_formulation.level_set_type
         self.element_integrates_in_time = self.embedded_formulation.element_integrates_in_time
         self.element_has_nodal_properties = self.embedded_formulation.element_has_nodal_properties
-        self.historical_nodal_properties_variables_list = self.embedded_formulation.historical_nodal_properties_variables_list 
+        self.historical_nodal_properties_variables_list = self.embedded_formulation.historical_nodal_properties_variables_list
         self.non_historical_nodal_properties_variables_list = self.embedded_formulation.non_historical_nodal_properties_variables_list
 
         ## Set the distance reading filename
