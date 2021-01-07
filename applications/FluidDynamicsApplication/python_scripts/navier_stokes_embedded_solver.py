@@ -212,7 +212,8 @@ class NavierStokesEmbeddedMonolithicSolver(FluidSolver):
             "continuous_distance": false,
             "check_at_each_time_step": true,
             "avoid_almost_empty_elements": false,
-            "deactivate_full_negative_elements": false
+            "deactivate_full_negative_elements": false,
+            "consider_edge_based": false
         }''')
 
     @classmethod

@@ -157,9 +157,12 @@ private:
     bool                                    mNegElemDeactivation;
     bool                               mAvoidAlmostEmptyElements;
     bool                                mRecoverOriginalDistance;
+    bool                                      mConsiderEdgeBased;
     std::vector<unsigned int>              mModifiedDistancesIDs;
+    std::vector<unsigned int>          mModifiedEdgeDistancesIDs;
     std::vector<double>                 mModifiedDistancesValues;
     std::vector<Vector>        mModifiedElementalDistancesValues;
+    std::vector<Vector>             mModifiedEdgeDistancesValues;
     std::vector<const Variable<double>*>    mDoubleVariablesList;
     std::vector<const ComponentType*>    mComponentVariablesList;
 
