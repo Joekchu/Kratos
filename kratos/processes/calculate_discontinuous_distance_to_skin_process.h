@@ -10,6 +10,8 @@
 //  Main authors:    Pooyan Dadvand
 //                   Ruben Zorrilla
 //
+//  Collaborators:   Franziska Wahl
+//
 
 #if !defined(KRATOS_CALCULATE_DISCONTINUOUS_DISTANCE_TO_SKIN_PROCESS_H_INCLUDED )
 #define  KRATOS_CALCULATE_DISCONTINUOUS_DISTANCE_TO_SKIN_PROCESS_H_INCLUDED
@@ -49,6 +51,12 @@ public:
     /// Pointer definition of CalculateDiscontinuousDistanceToSkinProcess
     KRATOS_CLASS_POINTER_DEFINITION(CalculateDiscontinuousDistanceToSkinProcess);
 
+    /// Local flag to switch on/off the elemental edge distances storage
+    KRATOS_DEFINE_LOCAL_APPLICATION_FLAG(KRATOS_CORE, CALCULATE_ELEMENTAL_EDGE_DISTANCES);
+
+    /// Local flag to switch on/off the calculation and storage of the extrapolated edge distances
+    KRATOS_DEFINE_LOCAL_APPLICATION_FLAG(KRATOS_CORE, CALCULATE_EXTRA_EDGE_DISTANCES);
+
     ///@}
     ///@name Life Cycle
     ///@{
@@ -57,6 +65,19 @@ public:
     CalculateDiscontinuousDistanceToSkinProcess(
         ModelPart& rVolumePart,
         ModelPart& rSkinPart);
+
+    /// Constructor with options
+    CalculateDiscontinuousDistanceToSkinProcess(
+        ModelPart& rVolumePart,
+        ModelPart& rSkinPart,
+        const Flags rOptionEdge);
+
+    /// Constructor with options
+    CalculateDiscontinuousDistanceToSkinProcess(
+        ModelPart& rVolumePart,
+        ModelPart& rSkinPart,
+        const Flags rOptionEdge,
+        const Flags rOptionExtraEdge);
 
     /// Destructor.
     ~CalculateDiscontinuousDistanceToSkinProcess() override;
@@ -188,6 +209,9 @@ private:
     ModelPart& mrSkinPart;
     ModelPart& mrVolumePart;
 
+    Flags mOptionEdge = CALCULATE_ELEMENTAL_EDGE_DISTANCES.AsFalse();
+    Flags mOptionExtraEdge = CALCULATE_EXTRA_EDGE_DISTANCES.AsFalse();
+
     ///@}
     ///@name Private Operations
     ///@{
@@ -203,19 +227,31 @@ private:
         PointerVector<GeometricalObject>& rIntersectedObjects);
 
     /**
+     * @brief Computes the discontinuous edge-based distance in one element
+     * This method computes the discontinuous edge-based distance field for a given element
+     * @param rElement1 reference to the element of interest
+     * @param rIntersectedObjects reference to the array containing the element of interest intersecting geometries
+     */
+    void CalculateElementalAndEdgeDistances(
+        Element& rElement1,
+        PointerVector<GeometricalObject>& rIntersectedObjects);
+
+    /**
      * @brief Computes the edges intersections in one element
      * Provided a list of elemental intersecting geometries, this
      * method computes the edge intersections for a given element
      * @param rElement1 reference to the element of interest
      * @param rIntersectedObjects reference to the array containing the element of interest intersecting geometries
-     * @param rCutEdgesVector array that classifies the edges depending on their cut / uncut status
+     * @param rCutEdgesRatioVector array that stores the relative positions from node zero of the average intersection points
+     * @param rCutExtraEdgesRatioVector array that stores the relative positions from node zero of the average intersection points of the extrapolated geometry
      * @param rIntersectionPointsArray array containing the edges intersection points
      * @return unsigned int number of cut edges
      */
     unsigned int ComputeEdgesIntersections(
         Element& rElement1,
         const PointerVector<GeometricalObject>& rIntersectedObjects,
-        std::vector<unsigned int> &rCutEdgesVector,
+        array_1d<double, (TDim == 2) ? 3 : 6>& rCutEdgesRatioVector,
+        array_1d<double, (TDim == 2) ? 3 : 6>& rCutExtraEdgesRatioVector,
         std::vector<array_1d <double,3> > &rIntersectionPointsArray);
 
     /**
@@ -243,9 +279,22 @@ private:
      * @param rNormal obtained unit normal vector
      */
     void ComputeIntersectionNormal(
-        Element::GeometryType& rGeometry,
+        const Element::GeometryType& rGeometry,
         const Vector& rElementalDistances,
         array_1d<double,3> &rNormal);
+
+    /**
+     * @brief Computes the nodal distances to the intersection plane
+     * This methods calculates the nodal distances to the intersection plane
+     * In presence of multiple intersections, it performs a least squares approximation of the intersection plane
+     * @param rElement Element to calculate the ELEMENTAL_DISTANCES
+     * @param rIntersectedObjects Intersected objects container
+     * @param rIntersectionPointsCoordinates The edges intersection points coordinates
+     */
+    void ComputeIntersectionPlaneElementalDistances(
+        Element& rElement,
+        const PointerVector<GeometricalObject>& rIntersectedObjects,
+        const std::vector<array_1d<double,3>>& rIntersectionPointsCoordinates);
 
     /**
      * @brief Computes the intersection plane approximation
@@ -275,7 +324,7 @@ private:
      * @param rElementalDistances array containing the ELEMENTAL_DISTANCES values
      */
     void CorrectDistanceOrientation(
-        Element::GeometryType& rGeometry,
+        const Element::GeometryType& rGeometry,
         const PointerVector<GeometricalObject>& rIntersectedObjects,
         Vector& rElementalDistances);
 
@@ -288,6 +337,71 @@ private:
     void inline ComputeIntersectionNormalFromGeometry(
         const Element::GeometryType &rGeometry,
         array_1d<double,3> &rIntObjNormal);
+
+    /**
+     * @brief Checks if element qualifies and then computes the uncut edges intersections of the element
+     * with an averaged and extrapolated geometry. Therefore it calls 'ComputeExtrapolatedObjectIntersections'.
+     * @param rElement1 reference to the element of interest
+     * @param rNumCutEdges number of cut edges of the element
+     * @param rCutEdgesRatioVector array that stores the relative positions from node zero of the average intersection points
+     * @param rExtraGeomNormal normal of the averaged and extrapolated geometry
+     * @param rCutExtraEdgesRatioVector array that stores the relative positions from node zero of the additional
+     * average intersection points of the extrapolated geometry
+     */
+    void ComputeExtraEdgesIntersections(
+        Element& rElement,
+        unsigned int &rNumCutEdges,
+		array_1d<double, (TDim == 2) ? 3 : 6>& rCutEdgesRatioVector,
+		array_1d<double,3> &rExtraGeomNormal,
+		array_1d<double, (TDim == 2) ? 3 : 6>& rCutExtraEdgesRatioVector);
+
+    /**
+     * @brief Computes the uncut edges intersections of one element with an averaged and extrapolated geometry.
+     * Therefore it calls 'IntersectionUtilities'.
+     * It saves the edge intersections as ratios of the edge's length in rCutExtraEdgesRatioVector.
+     * @param rElement1 reference to the element of interest
+     * @param rNumCutEdges number of cut edges of the element
+     * @param rCutEdgesRatioVector array that stores the relative positions from node zero of the average intersection points
+     * @param rExtraGeomNormal normal of the averaged and extrapolated geometry
+     * @param rCutExtraEdgesRatioVector array that stores the relative positions from node zero of the additional
+     * average intersection points of the extrapolated geometry
+     */
+	void ComputeExtrapolatedGeomIntersections(
+        Element& rElement,
+        unsigned int& rNumCutEdges,
+		array_1d<double, (TDim == 2) ? 3 : 6>& rCutEdgesRatioVector,
+		array_1d<double,3>& rExtraGeomNormal,
+		array_1d<double, (TDim == 2) ? 3 : 6>& rCutExtraEdgesRatioVector);
+
+    /**
+     * @brief Checks whether the edges of an element, which are cut, all share one node
+     * @param rEdge reference to the edge of interest
+     * @param rIntersectionPoint average intersection point at the edge
+     * @return calculated relative positions of the intersection point along the edge from node zero
+     */
+    double GetEdgeRatioFromIntersectionPoint(
+        const Kratos::Geometry<Kratos::Node<3> >& rEdge,
+        const array_1d<double,3>& rIntersectionPoint);
+
+    /**
+     * @brief Checks whether the edges of an element, which are cut, all share one node
+     * @param rEdge reference to the edge of interest
+     * @param rEdgeRatio relative positions of the intersection point along the edge from node zero
+     * @return rIntersectionPoint calculated average intersection point at the edge
+     */
+    array_1d<double,3> GetIntersectionPointFromEdgeRatio(
+        const Kratos::Geometry<Kratos::Node<3> >& rEdge,
+        const double& rEdgeRatio);
+
+    /**
+     * @brief Checks whether the edges of an element, which are cut, all share one node
+     * @param rElement reference to the element of interest
+     * @param rCutEdgesRatioVector array that stores the relative positions from node zero of the average intersection points
+     * @return boolean true if cut edges share one node
+     */
+    bool CheckIfCutEdgesShareNode(
+        Element& rElement,
+        array_1d<double, (TDim == 2) ? 3 : 6>& rCutEdgesRatioVector);
 
     /**
      * @brief Computes the value of any embedded variable
@@ -374,12 +488,53 @@ private:
 		}
 	};
 
+    /**
+     * @brief Set the ELEMENTAL_EDGE_DISTANCES values
+     * This method saves the provided cut edges ratios in the ELEMENTAL_EDGE_DISTANCES variable
+     * For uncut edges, a value (-1) is set.
+     * For cut edges, the relative distance (wrt the edge length) from the 0 node of the edge to the intersection point is saved
+     * @param rElement The element to set the ELEMENTAL_EDGE_DISTANCES
+     * @param rCutEdgesRatioVector Array containing the cut edges ratio values
+     */
+    void SetElementalEdgeDistancesValues(
+        Element& rElement,
+        const array_1d<double, (TDim == 2) ? 3 : 6>& rCutEdgesRatioVector);
+
+    /**
+     * @brief Set the ELEMENTAL_EXTRA_EDGE_DISTANCES values
+     * This method saves the provided extrapolated cut edges ratios in the ELEMENTAL_EXTRA_EDGE_DISTANCES variable
+     * For uncut edges and cut edges of intersected elements, a value (-1) is set.
+     * For cut edges of incised elements, the relative distance (wrt the edge length) from the 0 node of the edge to the intersection point of the extrapolated geometry is saved
+     * @param rElement The element to set the ELEMENTAL_EXTRA_EDGE_DISTANCES
+     * @param rCutEdgesRatioVector Array containing the cut edges ratio values of the extrapolated geometry
+     */
+    void SetElementalExtrapolatedEdgeDistancesValues(
+        Element& rElement,
+        const array_1d<double, (TDim == 2) ? 3 : 6>& rCutExtraEdgesRatioVector);
+
+
+    /**
+     * @brief Set the TO_SPLIT Kratos flag
+     * This function sets the TO_SPLIT flag in the provided element according to the ELEMENTAL_DISTANCES values
+     * Note that the zero distance case is avoided by checking the positiveness and negativeness of the nodal values
+     * @param rElement Element to set the TO_SPLIT flag
+     * @param ZeroTolerance Tolerance to check the zero distance values
+     */
+    void SetToSplitFlag(
+        Element& rElement,
+        const double ZeroTolerance);
+
     ///@}
 
 }; // Class CalculateDiscontinuousDistanceToSkinProcess
 
-///@}
+// Local flag creation without using the KRATOS_CREATE_LOCAL_FLAG macro since this has a template parameter.
+template<std::size_t TDim>
+const Kratos::Flags CalculateDiscontinuousDistanceToSkinProcess<TDim>::CALCULATE_ELEMENTAL_EDGE_DISTANCES(Kratos::Flags::Create(0));
+template<std::size_t TDim>
+const Kratos::Flags CalculateDiscontinuousDistanceToSkinProcess<TDim>::CALCULATE_EXTRA_EDGE_DISTANCES(Kratos::Flags::Create(0));
 
+///@}
 ///@name Input and output
 ///@{
 
