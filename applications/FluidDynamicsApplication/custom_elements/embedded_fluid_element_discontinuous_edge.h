@@ -274,7 +274,7 @@ protected:
 
     /**
     * This method adds a penalization for pressure gradients in incised elements.
-    * [penalization = volume_integral_of (penalty_coefficient * N * pressure_DNDX)]
+    * [penalization = volume_integral_of (penalty_coefficient * pressure_DNDX * pressure_DNDX)]
     * @param rLHS reference to the LHS matrix
     * @param rRHS reference to the RHS vector
     * @param rData reference to element data structure
@@ -297,8 +297,8 @@ protected:
         const EmbeddedDiscontinuousEdgeElementData& rData) const;
 
     /**
-    * This method computes the penalty coefficient for the pressure gradient in incised elements
-    * Works only for triangle and tetrahedron!
+    * This method computes the penalty coefficient for the pressure gradient in an incised elements for a Gauss point (GP)
+    * [p_coefficient = penalty_constant * rho_GP * v_norm_GP * h^2 / mu / scaling_value] -> unit: m
     * @param rData reference to element data structure
     * @param rN the current Gauss point shape functions vector
     * @return double The pressure gradient penalty coefficient value
@@ -306,8 +306,8 @@ protected:
     double ComputePressureGradPenaltyCoefficient(const EmbeddedDiscontinuousEdgeElementData& rData, const Vector& rN) const;
 
     /**
-    * This method computes the penalty coefficient for the velocity gradient in incised elements
-    * Works only for triangle and tetrahedron!
+    * This method computes the penalty coefficient for the velocity gradient in an incised elements for a Gauss point (GP)
+    * [v_coefficient = penalty_constant * ( rho_GP * v_norm_GP + mu )] -> unit: kg*m^(-1)*s^(-1)
     * @param rData reference to element data structure
     * @param rN the current Gauss point shape functions vector
     * @return double The velocity gradient penalty coefficient value

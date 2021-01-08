@@ -207,15 +207,15 @@ KRATOS_TEST_CASE_IN_SUITE(EmbeddedElementDiscontinuousEdge2D3N, FluidDynamicsApp
     //output_incised[0] = output_uncut[0]; // EmbeddedWeaklyCompressibleNavierStokesDiscontinuous
     //output_incised[1] = output_uncut[1]; // EmbeddedQSVMSDiscontinuous
     // with velocity gradient penalty:
-    output_incised[0] = {-31.5776,-22.1215,-0.655758,77.8937,184.857,0.130878,131.072,235.978,0.374881}; // EmbeddedWeaklyCompressibleNavierStokesDiscontinuous
-    output_incised[1] = {-52.758,-71.7007,-0.655758,65.2184,142.503,0.130877,110.665,200.448,0.374881}; // EmbeddedQSVMSDiscontinuous
+    output_incised[0] = {-31.5776469,-22.1215363,-0.6557582459,77.89372178,184.8574265,0.1308775154,131.0721797,235.978329,0.3748807306}; // EmbeddedWeaklyCompressibleNavierStokesDiscontinuous
+    output_incised[1] = {-52.75798817,-71.70069187,-0.6557581669,65.21837673,142.5029771,0.1308774929,110.6646114,200.4477148,0.374880674}; // EmbeddedQSVMSDiscontinuous
 
     counter = 0;
 
     // Test incised element (one edge is cut)
     model_part.GetProcessInfo().SetValue(P_GRAD_PENALTY_CONSTANT, 1.0);
     model_part.GetProcessInfo().SetValue(V_GRAD_PENALTY_CONSTANT, 1.0);
-    //for penalty constant 1.0: penalty coefficient of pressure gradient should be (22.9062, 123.056, 163.453) for respective Gauss point
+    //for penalty constant 1.0: penalty coefficient of pressure gradient should be (16.1971, 87.0136, 115.579) for respective Gauss point
     //for penalty constant 1.0: penalty coefficient of velocity gradient should be (22.9062, 123.056, 163.453) for respective Gauss point
 
     elem_dist[0] =  0.2;
