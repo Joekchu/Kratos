@@ -36,6 +36,13 @@ namespace Kratos
 ///@name Kratos Classes
 ///@{
 
+class KRATOS_API(KRATOS_CORE) CalculateDiscontinuousDistanceToSkinProcessFlags
+{
+public:
+    KRATOS_DEFINE_LOCAL_FLAG(CALCULATE_ELEMENTAL_EDGE_DISTANCES); /// Local flag to switch on/off the elemental edge distances storage
+    KRATOS_DEFINE_LOCAL_FLAG(CALCULATE_ELEMENTAL_EXTRAPOLATED_EDGE_DISTANCES); /// Local flag to switch on/off the extrapolated elemental edge distances storage
+};
+
 /// This only calculates the distance. Calculating the inside outside should be done by a derived class of this.
 /** This process takes a volume model part (with tetrahedra mesh) and a skin model part (with triangle mesh) and
      and calcualtes the distance to the skin for all the elements and nodes of the volume model part.
@@ -50,12 +57,6 @@ public:
 
     /// Pointer definition of CalculateDiscontinuousDistanceToSkinProcess
     KRATOS_CLASS_POINTER_DEFINITION(CalculateDiscontinuousDistanceToSkinProcess);
-
-    /// Local flag to switch on/off the elemental edge distances storage
-    KRATOS_DEFINE_LOCAL_APPLICATION_FLAG(KRATOS_CORE, CALCULATE_ELEMENTAL_EDGE_DISTANCES);
-
-    /// Local flag to switch on/off the calculation and storage of the extrapolated edge distances
-    KRATOS_DEFINE_LOCAL_APPLICATION_FLAG(KRATOS_CORE, CALCULATE_EXTRA_EDGE_DISTANCES);
 
     ///@}
     ///@name Life Cycle
@@ -209,8 +210,8 @@ private:
     ModelPart& mrSkinPart;
     ModelPart& mrVolumePart;
 
-    Flags mOptionEdge = CALCULATE_ELEMENTAL_EDGE_DISTANCES.AsFalse();
-    Flags mOptionExtraEdge = CALCULATE_EXTRA_EDGE_DISTANCES.AsFalse();
+    Flags mOptionEdge;
+    Flags mOptionExtraEdge;
 
     ///@}
     ///@name Private Operations
@@ -501,11 +502,11 @@ private:
         const array_1d<double, (TDim == 2) ? 3 : 6>& rCutEdgesRatioVector);
 
     /**
-     * @brief Set the ELEMENTAL_EXTRA_EDGE_DISTANCES values
-     * This method saves the provided extrapolated cut edges ratios in the ELEMENTAL_EXTRA_EDGE_DISTANCES variable
+     * @brief Set the ELEMENTAL_EXTRAPOLATED_EDGE_DISTANCES values
+     * This method saves the provided extrapolated cut edges ratios in the ELEMENTAL_EXTRAPOLATED_EDGE_DISTANCES variable
      * For uncut edges and cut edges of intersected elements, a value (-1) is set.
      * For cut edges of incised elements, the relative distance (wrt the edge length) from the 0 node of the edge to the intersection point of the extrapolated geometry is saved
-     * @param rElement The element to set the ELEMENTAL_EXTRA_EDGE_DISTANCES
+     * @param rElement The element to set the ELEMENTAL_EXTRAPOLATED_EDGE_DISTANCES
      * @param rCutEdgesRatioVector Array containing the cut edges ratio values of the extrapolated geometry
      */
     void SetElementalExtrapolatedEdgeDistancesValues(
@@ -527,12 +528,6 @@ private:
     ///@}
 
 }; // Class CalculateDiscontinuousDistanceToSkinProcess
-
-// Local flag creation without using the KRATOS_CREATE_LOCAL_FLAG macro since this has a template parameter.
-template<std::size_t TDim>
-const Kratos::Flags CalculateDiscontinuousDistanceToSkinProcess<TDim>::CALCULATE_ELEMENTAL_EDGE_DISTANCES(Kratos::Flags::Create(0));
-template<std::size_t TDim>
-const Kratos::Flags CalculateDiscontinuousDistanceToSkinProcess<TDim>::CALCULATE_EXTRA_EDGE_DISTANCES(Kratos::Flags::Create(0));
 
 ///@}
 ///@name Input and output
